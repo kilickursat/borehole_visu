@@ -109,10 +109,13 @@ def plot_tunnel_and_boreholes(tunnel_start, tunnel_end, borehole_coords, transfo
 st.title("Tunnel and Borehole Visualization")
 
 # Define coordinate systems
-crs_options = {
-    "ETRS89 / UTM Zone 32N": "epsg:25832",
-    "WGS84": "epsg:4326"
-}
+crs_options = = {
+        "ETRS89 / UTM zone 32N": "epsg:25832",
+        "WGS 84 / UTM zone 32N": "epsg:32632",
+        "ETRS89 / UTM zone 33N": "epsg:25833",
+        "WGS 84 / UTM zone 33N": "epsg:32633",
+    }
+
 
 # User input for coordinate systems
 from_crs = st.selectbox("Select input coordinate system", list(crs_options.keys()))

@@ -118,7 +118,7 @@ def main():
 
     # Borehole input
     st.subheader("Borehole Data")
-    borehole_data = pd.DataFrame(columns=['Name', 'X', 'Y'])
+    borehole_data = []
     num_boreholes = st.number_input("Number of Boreholes", min_value=1, value=3, step=1)
     
     for i in range(num_boreholes):
@@ -129,11 +129,13 @@ def main():
             x = st.number_input(f"Borehole {i+1} X", value=506400.0 + i*10)
         with col3:
             y = st.number_input(f"Borehole {i+1} Y", value=5884000.0 + i*100)
-        borehole_data = borehole_data.append({'Name': name, 'X': x, 'Y': y}, ignore_index=True)
+        borehole_data.append({'Name': name, 'X': x, 'Y': y})
+    
+    borehole_df = pd.DataFrame(borehole_data)
 
     # Create map
     if st.button("Generate Map"):
-        m = plot_tunnel_and_boreholes(tunnel_coords, borehole_data, from_crs)
+        m = plot_tunnel_and_boreholes(tunnel_coords, borehole_df, from_crs)
         folium_static(m)
 
 if __name__ == "__main__":

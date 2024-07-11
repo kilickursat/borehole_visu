@@ -1,1 +1,1 @@
-web: sh setup.sh && streamlit run borehole_visu.py
+web: sh setup.sh && streamlit run new_demo.py

@@ -100,6 +100,7 @@ def main():
         "WGS 84 / UTM zone 32N": "epsg:32632",
         "ETRS89 / UTM zone 33N": "epsg:25833",
         "WGS 84 / UTM zone 33N": "epsg:32633",
+        "ITRF2014 UTM Zone 30N": "epsg:7927",  # Added the new coordinate system
     }
     selected_crs = st.selectbox("Select Input Coordinate System", list(coordinate_systems.keys()))
     from_crs = coordinate_systems[selected_crs]

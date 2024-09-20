@@ -10,13 +10,18 @@ def utm_to_latlon(x, y, from_crs):
     lon, lat = transformer.transform(x, y)
     return lat, lon
 
-def plot_tunnel_and_boreholes(tunnel_coords, borehole_data, from_crs):
-    # Convert tunnel coordinates to lat/lon
-    tunnel_latlon = [utm_to_latlon(x, y, from_crs) for x, y in tunnel_coords]
-    
-    # Create a map centered around the midpoint of the tunnel
-    center_lat = sum(lat for lat, _ in tunnel_latlon) / len(tunnel_latlon)
-    center_lon = sum(lon for _, lon in tunnel_latlon) / len(tunnel_latlon)
+def plot_project(project_type, tunnel_coords, borehole_data, from_crs):
+    if project_type == "Tunnel Boring":
+        # Convert tunnel coordinates to lat/lon
+        tunnel_latlon = [utm_to_latlon(x, y, from_crs) for x, y in tunnel_coords]
+        
+        # Create a map centered around the midpoint of the tunnel
+        center_lat = sum(lat for lat, _ in tunnel_latlon) / len(tunnel_latlon)
+        center_lon = sum(lon for _, lon in tunnel_latlon) / len(tunnel_latlon)
+    else:  # Offshore Project
+        # Create a map centered around the first borehole
+        center_lat, center_lon = utm_to_latlon(borehole_data.iloc[0]['X'], borehole_data.iloc[0]['Y'], from_crs)
+
     m = folium.Map(location=[center_lat, center_lon], zoom_start=13)
     
     # Add MeasureControl for scale and distance measurement
@@ -43,26 +48,27 @@ def plot_tunnel_and_boreholes(tunnel_coords, borehole_data, from_crs):
     # Add layer control
     folium.LayerControl().add_to(m)
     
-    # Plot tunnel alignment
-    folium.PolyLine(
-        locations=tunnel_latlon,
-        color="blue",
-        weight=3,
-        opacity=0.8,
-        popup="Tunnel Alignment"
-    ).add_to(m)
+    if project_type == "Tunnel Boring":
+        # Plot tunnel alignment
+        folium.PolyLine(
+            locations=tunnel_latlon,
+            color="blue",
+            weight=3,
+            opacity=0.8,
+            popup="Tunnel Alignment"
+        ).add_to(m)
 
-    # Add tunnel start and end markers
-    folium.Marker(
-        tunnel_latlon[0],
-        popup='Tunnel Start',
-        icon=folium.Icon(color='green', icon='info-sign')
-    ).add_to(m)
-    folium.Marker(
-        tunnel_latlon[-1],
-        popup='Tunnel End',
-        icon=folium.Icon(color='red', icon='info-sign')
-    ).add_to(m)
+        # Add tunnel start and end markers
+        folium.Marker(
+            tunnel_latlon[0],
+            popup='Tunnel Start',
+            icon=folium.Icon(color='green', icon='info-sign')
+        ).add_to(m)
+        folium.Marker(
+            tunnel_latlon[-1],
+            popup='Tunnel End',
+            icon=folium.Icon(color='red', icon='info-sign')
+        ).add_to(m)
 
     # Plot boreholes
     for _, borehole in borehole_data.iterrows():
@@ -92,7 +98,10 @@ def plot_tunnel_and_boreholes(tunnel_coords, borehole_data, from_crs):
     return m
 
 def main():
-    st.title("Tunnel and Borehole Visualization App")
+    st.title("Project Visualization App")
+
+    # Project type selection
+    project_type = st.radio("Select Project Type", ["Tunnel Boring", "Offshore Project"])
 
     # Coordinate system selection
     coordinate_systems = {
@@ -100,22 +109,23 @@ def main():
         "WGS 84 / UTM zone 32N": "epsg:32632",
         "ETRS89 / UTM zone 33N": "epsg:25833",
         "WGS 84 / UTM zone 33N": "epsg:32633",
-        "ITRF2014 UTM Zone 30N": "epsg:7927",  # Added the new coordinate system
+        "ITRF2014 UTM Zone 30N": "epsg:7927",
     }
     selected_crs = st.selectbox("Select Input Coordinate System", list(coordinate_systems.keys()))
     from_crs = coordinate_systems[selected_crs]
 
-    # Tunnel coordinates
-    st.subheader("Tunnel Coordinates")
-    num_tunnel_points = st.number_input("Number of Tunnel Points", min_value=2, value=2, step=1)
     tunnel_coords = []
-    for i in range(num_tunnel_points):
-        col1, col2 = st.columns(2)
-        with col1:
-            x = st.number_input(f"Tunnel Point {i+1} X", value=506354.60 + i*100)
-        with col2:
-            y = st.number_input(f"Tunnel Point {i+1} Y", value=5883817.71 + i*1000)
-        tunnel_coords.append((x, y))
+    if project_type == "Tunnel Boring":
+        # Tunnel coordinates
+        st.subheader("Tunnel Coordinates")
+        num_tunnel_points = st.number_input("Number of Tunnel Points", min_value=2, value=2, step=1)
+        for i in range(num_tunnel_points):
+            col1, col2 = st.columns(2)
+            with col1:
+                x = st.number_input(f"Tunnel Point {i+1} X", value=506354.60 + i*100)
+            with col2:
+                y = st.number_input(f"Tunnel Point {i+1} Y", value=5883817.71 + i*1000)
+            tunnel_coords.append((x, y))
 
     # Borehole input
     st.subheader("Borehole Data")
@@ -136,7 +146,7 @@ def main():
 
     # Create map
     if st.button("Generate Map"):
-        m = plot_tunnel_and_boreholes(tunnel_coords, borehole_df, from_crs)
+        m = plot_project(project_type, tunnel_coords, borehole_df, from_crs)
         folium_static(m)
 
 if __name__ == "__main__":

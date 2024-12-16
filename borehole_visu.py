@@ -105,18 +105,84 @@ def main():
     # Project type selection
     project_type = st.radio("Select Project Type", ['Tunnel Project', 'Offshore Drilling Project'])
 
-    # Coordinate system selection
+    # Extended coordinate system selection
     coordinate_systems = {
+        # Original European systems
         "ETRS89 / UTM zone 32N": "epsg:25832",
         "WGS 84 / UTM zone 32N": "epsg:32632",
         "ETRS89 / UTM zone 33N": "epsg:25833",
         "WGS 84 / UTM zone 33N": "epsg:32633",
-        "ITRF2014 / UTM zone 30N": "epsg:7912"  # Added new coordinate system
+        
+        # Indonesian Coordinate Systems (DGN95/ED50)
+        "DGN95 / UTM zone 46N": "epsg:23846",
+        "DGN95 / UTM zone 47N": "epsg:23847",
+        "DGN95 / UTM zone 48N": "epsg:23848",
+        "DGN95 / UTM zone 49N": "epsg:23849",
+        "DGN95 / UTM zone 50N": "epsg:23850",
+        "DGN95 / UTM zone 51N": "epsg:23851",
+        "DGN95 / UTM zone 52N": "epsg:23852",
+        "DGN95 / UTM zone 53N": "epsg:23853",
+        "DGN95 / UTM zone 54N": "epsg:23854",
+        
+        # ID74 / UTM zones (Indonesian Datum 1974)
+        "ID74 / UTM zone 46N": "epsg:23866",
+        "ID74 / UTM zone 47N": "epsg:23867",
+        "ID74 / UTM zone 48N": "epsg:23868",
+        "ID74 / UTM zone 49N": "epsg:23869",
+        "ID74 / UTM zone 50N": "epsg:23870",
+        "ID74 / UTM zone 51N": "epsg:23871",
+        "ID74 / UTM zone 52N": "epsg:23872",
+        "ID74 / UTM zone 53N": "epsg:23873",
+        "ID74 / UTM zone 54N": "epsg:23874",
+        
+        # ITRF Systems
+        "ITRF2014 / UTM zone 30N": "epsg:7912",
+        "ITRF2014 / UTM zone 31N": "epsg:7913",
+        "ITRF2014 / UTM zone 32N": "epsg:7914",
+        "ITRF2014 / UTM zone 33N": "epsg:7915",
+        "ITRF2014 / UTM zone 34N": "epsg:7916",
+        "ITRF2014 / UTM zone 35N": "epsg:7917",
+        
+        # ITRF2008 Systems
+        "ITRF2008 / UTM zone 30N": "epsg:5330",
+        "ITRF2008 / UTM zone 31N": "epsg:5331",
+        "ITRF2008 / UTM zone 32N": "epsg:5332",
+        "ITRF2008 / UTM zone 33N": "epsg:5333",
+        "ITRF2008 / UTM zone 34N": "epsg:5334",
+        "ITRF2008 / UTM zone 35N": "epsg:5335",
+        
+        # Additional ED50 Systems (European Datum 1950)
+        "ED50 / UTM zone 28N": "epsg:23028",
+        "ED50 / UTM zone 29N": "epsg:23029",
+        "ED50 / UTM zone 30N": "epsg:23030",
+        "ED50 / UTM zone 31N": "epsg:23031",
+        "ED50 / UTM zone 32N": "epsg:23032",
+        "ED50 / UTM zone 33N": "epsg:23033",
+        "ED50 / UTM zone 34N": "epsg:23034",
+        "ED50 / UTM zone 35N": "epsg:23035",
+        "ED50 / UTM zone 36N": "epsg:23036",
+        "ED50 / UTM zone 37N": "epsg:23037",
+        "ED50 / UTM zone 38N": "epsg:23038"
     }
-    selected_crs = st.selectbox("Select Input Coordinate System", list(coordinate_systems.keys()))
+
+    # Group coordinate systems by category for better organization
+    coordinate_system_groups = {
+        "European Systems": [k for k in coordinate_systems.keys() if k.startswith(("ETRS89", "WGS 84"))],
+        "Indonesian Systems (DGN95)": [k for k in coordinate_systems.keys() if k.startswith("DGN95")],
+        "Indonesian Systems (ID74)": [k for k in coordinate_systems.keys() if k.startswith("ID74")],
+        "ITRF Systems": [k for k in coordinate_systems.keys() if k.startswith("ITRF")],
+        "ED50 Systems": [k for k in coordinate_systems.keys() if k.startswith("ED50")]
+    }
+
+    # Create a two-step selection process
+    selected_group = st.selectbox("Select Coordinate System Group", list(coordinate_system_groups.keys()))
+    selected_crs = st.selectbox(
+        "Select Specific Coordinate System", 
+        coordinate_system_groups[selected_group]
+    )
     from_crs = coordinate_systems[selected_crs]
 
-    # Tunnel coordinates (only relevant for Tunnel Projects)
+    # Rest of the main() function remains the same
     if project_type == 'Tunnel Project':
         st.subheader("Tunnel Coordinates")
         num_tunnel_points = st.number_input("Number of Tunnel Points", min_value=2, value=2, step=1)
@@ -129,9 +195,9 @@ def main():
                 y = st.number_input(f"Tunnel Point {i+1} Easting", value=5883817.71 + i*1000)
             tunnel_coords.append((x, y))
     else:
-        tunnel_coords = []  # No tunnel coordinates for offshore projects
+        tunnel_coords = []
 
-    # Borehole input
+    # Borehole input section remains the same
     st.subheader("Borehole Data")
     borehole_data = []
     num_boreholes = st.number_input("Number of Boreholes", min_value=1, value=3, step=1)

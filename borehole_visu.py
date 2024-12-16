@@ -12,53 +12,7 @@ def utm_to_latlon(x, y, from_crs):
     transformer = Transformer.from_crs(from_crs, "epsg:4326", always_xy=True)
     lon, lat = transformer.transform(x, y)
     return lat, lon
-def create_custom_geological_profile(layers):
-    """Create a geological profile visualization with custom colors and patterns"""
-    fig = go.Figure()
-    
-    # Add layers from bottom to top
-    bottom = 0
-    
-    for layer in reversed(layers):
-        thickness = layer['thickness']
-        custom_description = layer['description']
-        color = layer['color']  # User-defined color
-        
-        # Add layer rectangle
-        fig.add_trace(go.Scatter(
-            x=[0, 1, 1, 0, 0],
-            y=[bottom, bottom, bottom + thickness, bottom + thickness, bottom],
-            fill="toself",
-            fillcolor=color,
-            line=dict(color='black'),
-            name=custom_description,
-            hoverinfo='text',
-            text=f"Layer Description: {custom_description}<br>Thickness: {thickness}m"
-        ))
-        
-        # Add text annotation for detailed description
-        fig.add_annotation(
-            x=0.5,
-            y=bottom + thickness/2,
-            text=custom_description,
-            showarrow=False,
-            font=dict(size=10),
-            xanchor='center'
-        )
-        
-        bottom += thickness
-    
-    # Update layout
-    fig.update_layout(
-        showlegend=True,
-        xaxis_title="Width",
-        yaxis_title="Depth (m)",
-        yaxis_autorange='reversed',
-        height=400,
-        margin=dict(l=0, r=0, t=30, b=0)
-    )
-    
-    return fig
+
     
 def plot_tunnel_and_boreholes(tunnel_coords, borehole_data, from_crs, project_type):
     # Convert tunnel coordinates to lat/lon if tunnel project is selected
@@ -76,31 +30,64 @@ def plot_tunnel_and_boreholes(tunnel_coords, borehole_data, from_crs, project_ty
     # Create map
     m = folium.Map(location=[center_lat, center_lon], zoom_start=13)
     
-    # Add measurement control and layers (previous code remains the same)
+    # Add MeasureControl for scale and distance measurement
+    plugins.MeasureControl(position='bottomleft', primary_length_unit='meters').add_to(m)
     
-    # Plot boreholes with custom geological information
+    # Add satellite imagery layer
+    folium.TileLayer(
+        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr='Esri',
+        name='Satellite Imagery',
+        overlay=False,
+        control=True
+    ).add_to(m)
+    
+    # Add OpenStreetMap layer for landmarks
+    folium.TileLayer(
+        tiles='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attr='OpenStreetMap',
+        name='OpenStreetMap',
+        overlay=False,
+        control=True
+    ).add_to(m)
+    
+    # Add layer control
+    folium.LayerControl().add_to(m)
+    
+    # Plot tunnel alignment if it's a tunnel project
+    if project_type == 'Tunnel Project':
+        folium.PolyLine(
+            locations=tunnel_latlon,
+            color="blue",
+            weight=3,
+            opacity=0.8,
+            popup="Tunnel Alignment"
+        ).add_to(m)
+
+        # Add tunnel start and end markers
+        folium.Marker(
+            tunnel_latlon[0],
+            popup='Tunnel Start',
+            icon=folium.Icon(color='green', icon='info-sign')
+        ).add_to(m)
+        folium.Marker(
+            tunnel_latlon[-1],
+            popup='Tunnel End',
+            icon=folium.Icon(color='red', icon='info-sign')
+        ).add_to(m)
+
+    # Plot boreholes
     for _, borehole in borehole_data.iterrows():
         lat, lon = utm_to_latlon(borehole['X'], borehole['Y'], from_crs)
-        
-        # Create detailed popup content with custom geological information
         popup_content = f"""
         <b>{borehole['Name']}</b><br>
-        <b>Location:</b><br>
+        Input Coordinates:<br>
         Northing: {borehole['X']:.2f}<br>
         Easting: {borehole['Y']:.2f}<br>
-        Lat/Lon: {lat:.6f}, {lon:.6f}<br>
-        <b>Geological Profile:</b><br>
+        Lat/Lon Coordinates:<br>
+        Lat: {lat:.6f}<br>
+        Lon: {lon:.6f}
         """
-        
-        # Add custom geological layers information
-        if 'layers' in borehole:
-            for i, layer in enumerate(borehole['layers'], 1):
-                popup_content += f"""
-                Layer {i}:<br>
-                - Description: {layer['description']}<br>
-                - Thickness: {layer['thickness']}m<br>
-                """
-        
         folium.CircleMarker(
             location=[lat, lon],
             radius=6,
@@ -110,7 +97,10 @@ def plot_tunnel_and_boreholes(tunnel_coords, borehole_data, from_crs, project_ty
             fillOpacity=0.8,
             popup=folium.Popup(popup_content, max_width=300)
         ).add_to(m)
-    
+
+    # Add click event to show coordinates
+    m.add_child(folium.LatLngPopup())
+
     return m
 
 def main():
@@ -188,51 +178,19 @@ def main():
         "ED50 Systems": [k for k in coordinate_systems.keys() if k.startswith("ED50")]
     }
 
-    selected_crs = st.selectbox("Select Input Coordinate System", list(coordinate_systems.keys()))
+    # Create a two-step selection process
+    selected_group = st.selectbox("Select Coordinate System Group", list(coordinate_system_groups.keys()))
+    selected_crs = st.selectbox(
+        "Select Specific Coordinate System", 
+        coordinate_system_groups[selected_group]
+    )
     from_crs = coordinate_systems[selected_crs]
 
-    # Add a section for custom legend creation
-    st.subheader("Custom Geological Legend")
-    st.markdown("Define your custom geological descriptions and colors")
-    
-    # Initialize session state for legend items if not exists
-    if 'legend_items' not in st.session_state:
-        st.session_state.legend_items = []
-
-    # Add new legend item
-    with st.expander("Add New Legend Item"):
-        col1, col2, col3 = st.columns([2, 1, 1])
-        with col1:
-            new_description = st.text_input("Description", key="new_legend_desc")
-        with col2:
-            new_color = st.color_picker("Color", key="new_legend_color")
-        with col3:
-            if st.button("Add to Legend"):
-                st.session_state.legend_items.append({
-                    'description': new_description,
-                    'color': new_color
-                })
-
-    # Display and edit existing legend items
-    if st.session_state.legend_items:
-        st.markdown("### Current Legend Items")
-        for idx, item in enumerate(st.session_state.legend_items):
-            col1, col2, col3 = st.columns([2, 1, 1])
-            with col1:
-                st.text(item['description'])
-            with col2:
-                st.color_picker("", item['color'], key=f"color_{idx}", disabled=True)
-            with col3:
-                if st.button("Remove", key=f"remove_{idx}"):
-                    st.session_state.legend_items.pop(idx)
-                    st.experimental_rerun()
-
-    # Tunnel coordinates section
-    tunnel_coords = []
+    # Rest of the main() function remains the same
     if project_type == 'Tunnel Project':
         st.subheader("Tunnel Coordinates")
         num_tunnel_points = st.number_input("Number of Tunnel Points", min_value=2, value=2, step=1)
-        
+        tunnel_coords = []
         for i in range(num_tunnel_points):
             col1, col2 = st.columns(2)
             with col1:
@@ -240,139 +198,30 @@ def main():
             with col2:
                 y = st.number_input(f"Tunnel Point {i+1} Easting", value=5883817.71 + i*1000)
             tunnel_coords.append((x, y))
+    else:
+        tunnel_coords = []
 
-    # Borehole data section
+    # Borehole input section remains the same
     st.subheader("Borehole Data")
+    borehole_data = []
     num_boreholes = st.number_input("Number of Boreholes", min_value=1, value=3, step=1)
     
-    borehole_data = []
     for i in range(num_boreholes):
-        st.markdown(f"### Borehole {i+1}")
-        
-        # Basic borehole information
         col1, col2, col3 = st.columns(3)
         with col1:
-            name = st.text_input(f"Borehole Name", value=f"BH{i+1}", key=f"name_{i}")
+            name = st.text_input(f"Borehole {i+1} Name", value=f"BH{i+1}")
         with col2:
-            x = st.number_input(f"Northing", value=506400.0 + i*10, key=f"x_{i}")
+            x = st.number_input(f"Borehole {i+1} Northing", value=506400.0 + i*10)
         with col3:
-            y = st.number_input(f"Easting", value=5884000.0 + i*100, key=f"y_{i}")
-        
-        # Custom geological layers input
-        st.markdown(f"#### Geological Layers for {name}")
-        num_layers = st.number_input(f"Number of Layers", min_value=1, value=3, key=f"layers_{i}")
-        
-        layers = []
-        for j in range(num_layers):
-            st.markdown(f"##### Layer {j+1}")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Free-form text input for layer description
-                description = st.text_area(
-                    "Layer Description",
-                    value="Enter detailed geological description",
-                    key=f"desc_{i}_{j}",
-                    height=100
-                )
-                
-                # Option to use legend item or custom color
-                use_legend = st.checkbox("Use Legend Item", key=f"use_legend_{i}_{j}")
-                if use_legend and st.session_state.legend_items:
-                    legend_desc = [item['description'] for item in st.session_state.legend_items]
-                    selected_idx = st.selectbox(
-                        "Select Legend Item",
-                        range(len(legend_desc)),
-                        format_func=lambda x: legend_desc[x],
-                        key=f"legend_select_{i}_{j}"
-                    )
-                    color = st.session_state.legend_items[selected_idx]['color']
-                else:
-                    color = st.color_picker("Layer Color", key=f"color_{i}_{j}")
-            
-            with col2:
-                thickness = st.number_input(
-                    "Layer Thickness (m)",
-                    min_value=0.1,
-                    value=1.0,
-                    key=f"thickness_{i}_{j}"
-                )
-                
-                # Additional geological parameters
-                water_content = st.number_input(
-                    "Water Content (%)",
-                    min_value=0.0,
-                    max_value=100.0,
-                    value=0.0,
-                    key=f"water_{i}_{j}"
-                )
-                
-                density = st.number_input(
-                    "Density (g/cm³)",
-                    min_value=0.1,
-                    value=1.8,
-                    key=f"density_{i}_{j}"
-                )
-                
-                sample_quality = st.selectbox(
-                    "Sample Quality",
-                    ["Undisturbed", "Partially Disturbed", "Disturbed", "No Sample"],
-                    key=f"quality_{i}_{j}"
-                )
-                
-                additional_notes = st.text_area(
-                    "Additional Notes",
-                    value="",
-                    key=f"notes_{i}_{j}",
-                    height=50
-                )
-            
-            layers.append({
-                'description': description,
-                'thickness': thickness,
-                'color': color,
-                'water_content': water_content,
-                'density': density,
-                'sample_quality': sample_quality,
-                'additional_notes': additional_notes
-            })
-        
-        # Create and display geological profile for this borehole
-        st.markdown(f"#### Geological Profile for {name}")
-        profile_fig = create_custom_geological_profile(layers)
-        st.plotly_chart(profile_fig, use_container_width=True)
-        
-        borehole_data.append({
-            'Name': name,
-            'X': x,
-            'Y': y,
-            'layers': layers
-        })
+            y = st.number_input(f"Borehole {i+1} Easting", value=5884000.0 + i*100)
+        borehole_data.append({'Name': name, 'X': x, 'Y': y})
     
     borehole_df = pd.DataFrame(borehole_data)
 
-    # Map generation and data export
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Generate Map"):
-            m = plot_tunnel_and_boreholes(tunnel_coords, borehole_df, from_crs, project_type)
-            folium_static(m)
-    
-    with col2:
-        if st.button("Export Geological Data"):
-            export_data = {
-                'project_type': project_type,
-                'coordinate_system': selected_crs,
-                'legend': st.session_state.legend_items,
-                'tunnel_coordinates': tunnel_coords if project_type == 'Tunnel Project' else None,
-                'boreholes': borehole_data
-            }
-            st.download_button(
-                "Download Geological Data",
-                data=json.dumps(export_data, indent=2),
-                file_name="geological_data.json",
-                mime="application/json"
-            )
+    # Create map
+    if st.button("Generate Map"):
+        m = plot_tunnel_and_boreholes(tunnel_coords, borehole_df, from_crs, project_type)
+        folium_static(m)
 
 if __name__ == "__main__":
     main()

@@ -5,3 +5,4 @@ pyproj==3.5.0
 pandas
 numpy
 shapely
+plotly

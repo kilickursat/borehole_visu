@@ -7,6 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import json
+import numpy as np
 
 def utm_to_latlon(x, y, from_crs):
     transformer = Transformer.from_crs(from_crs, "epsg:4326", always_xy=True)

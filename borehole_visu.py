@@ -102,7 +102,88 @@ def plot_tunnel_and_boreholes(tunnel_coords, borehole_data, from_crs, project_ty
     m.add_child(folium.LatLngPopup())
 
     return m
-
+def plot_tunnel_cross_section(borehole_data, tunnel_coords):
+    # Create figure with secondary y-axis
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    
+    # Calculate distances between boreholes
+    distances = []
+    for i in range(len(borehole_data)):
+        if i == 0:
+            distances.append(0)
+        else:
+            dx = borehole_data.iloc[i]['X'] - borehole_data.iloc[0]['X']
+            dy = borehole_data.iloc[i]['Y'] - borehole_data.iloc[0]['Y']
+            distances.append(np.sqrt(dx**2 + dy**2))
+    
+    # Add lithology data for each borehole
+    colors = {
+        'CLAY': 'brown',
+        'SAND': 'yellow',
+        'ROCK': 'gray',
+        'SOIL': 'darkgreen'
+    }
+    
+    for i, distance in enumerate(distances):
+        bh = borehole_data.iloc[i]
+        
+        # Example lithology data - replace with actual data input
+        lithologies = [
+            {'depth': 0, 'type': 'SOIL', 'thickness': 2},
+            {'depth': 2, 'type': 'CLAY', 'thickness': 5},
+            {'depth': 7, 'type': 'SAND', 'thickness': 3},
+            {'depth': 10, 'type': 'ROCK', 'thickness': 5}
+        ]
+        
+        for layer in lithologies:
+            fig.add_trace(
+                go.Bar(
+                    name=layer['type'],
+                    x=[[distance, distance]],
+                    y=[[layer['depth'], layer['depth'] + layer['thickness']]],
+                    orientation='h',
+                    marker=dict(color=colors[layer['type']]),
+                    showlegend=i==0,
+                    width=5
+                )
+            )
+    
+    # Add tunnel alignment
+    tunnel_distances = []
+    tunnel_elevations = []
+    for i in range(len(tunnel_coords)):
+        if i == 0:
+            tunnel_distances.append(0)
+        else:
+            dx = tunnel_coords[i][0] - tunnel_coords[0][0]
+            dy = tunnel_coords[i][1] - tunnel_coords[0][1]
+            tunnel_distances.append(np.sqrt(dx**2 + dy**2))
+        # Example tunnel elevation - replace with actual data
+        tunnel_elevations.append(-8)  
+    
+    fig.add_trace(
+        go.Scatter(
+            x=tunnel_distances,
+            y=tunnel_elevations,
+            mode='lines',
+            name='Tunnel Alignment',
+            line=dict(color='red', width=3)
+        )
+    )
+    
+    # Update layout
+    fig.update_layout(
+        title='Tunnel Cross Section with Lithology',
+        xaxis_title='Distance (m)',
+        yaxis_title='Depth (m)',
+        barmode='overlay',
+        showlegend=True
+    )
+    
+    # Invert y-axis to show depth increasing downwards
+    fig.update_yaxes(autorange="reversed")
+    
+    return fig
 def main():
     st.title("Tunnel and Borehole Visualization App")
 
@@ -222,6 +303,11 @@ def main():
     if st.button("Generate Map"):
         m = plot_tunnel_and_boreholes(tunnel_coords, borehole_df, from_crs, project_type)
         folium_static(m)
+
+    # Cross-sectional map:
+    if st.button("Generate Cross Section"):
+        cross_section = plot_tunnel_cross_section(borehole_df, tunnel_coords)
+        st.plotly_chart(cross_section)
 
 if __name__ == "__main__":
     main()
